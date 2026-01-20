@@ -3,37 +3,56 @@
 """
 Servidor Echo - Exemplo de Socket TCP
 Devolve qualquer mensagem que recebe (echo).
-Pode processar múltiplas conexões sequencialmente.
+Pode processar múltiplas conexões simultaneamente usando threads.
 """
 
 import socket
+import threading
+import time
+
+def handle_client(conexao, endereco):
+    print(f'Conectado com {endereco}')
+
+    try:
+        while True:
+            # Receber dados
+            dados = conexao.recv(1024)
+
+            if not dados:
+                print(f'Cliente {endereco} desconectou')
+                break
+
+            mensagem = dados.decode('utf-8')
+            print(f'Recebido de {endereco}: {mensagem}')
+
+            # Simula processamento (para evidenciar concorrência)
+            time.sleep(2)
+
+            # Enviar dados de volta (echo)
+            resposta = f'Echo: {mensagem}'
+            conexao.send(resposta.encode('utf-8'))
+
+    except Exception as e:
+        print(f'Erro com {endereco}: {e}')
+
+    finally:
+        conexao.close()
+        print(f'Conexão encerrada com {endereco}')
+
 
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 servidor.bind(('localhost', 5000))
-servidor.listen(1)
+servidor.listen()
 print('Servidor Echo escutando em localhost:5000')
 
 while True:
     print('\nAguardando conexão...')
     conexao, endereco = servidor.accept()
-    print(f'Conectado com {endereco}')
-    
-    try:
-        while True:
-            # Receber dados
-            dados = conexao.recv(1024)
-            
-            if not dados:
-                print('Cliente desconectou')
-                break
-                
-            mensagem = dados.decode('utf-8')
-            print(f'Recebido: {mensagem}')
-            
-            # Enviar dados de volta (echo)
-            resposta = f'Echo: {mensagem}'
-            conexao.send(resposta.encode('utf-8'))
-            
-    finally:
-        conexao.close()
+
+    thread = threading.Thread(
+        target=handle_client,
+        args=(conexao, endereco)
+    )
+
+    thread.start()
